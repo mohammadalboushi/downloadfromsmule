@@ -5,6 +5,8 @@ const rateLimit = require('express-rate-limit');
 const path = require('path');
 
 const app = express();
+// تحديد البورت ديناميكياً عشان يشتغل على Render أو محلياً
+const port = process.env.PORT || 3000; 
 
 app.use(cors({ origin: '*', methods: ['POST'] }));
 app.use(express.json());
@@ -31,11 +33,18 @@ app.post('/api/extract', async (req, res) => {
 
     let browser;
     try {
-        browser = await puppeteer.launch({ 
-            executablePath: '/data/data/com.termux/files/usr/bin/chromium-browser',
+        // إعدادات التشغيل
+        let launchOptions = {
             headless: "new",
             args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'] 
-        });
+        };
+
+        // إذا ما كنا على سيرفرات Render، بنستخدم مسار تيرمكس (عشان يضل شغال عندك محلياً)
+        if (!process.env.RENDER) {
+            launchOptions.executablePath = '/data/data/com.termux/files/usr/bin/chromium-browser';
+        }
+
+        browser = await puppeteer.launch(launchOptions);
         
         const page = await browser.newPage();
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36');
@@ -92,6 +101,6 @@ app.post('/api/extract', async (req, res) => {
     }
 });
 
-app.listen(3000, () => {
-    console.log('Quantum Server Active on port 3000 🚀');
+app.listen(port, () => {
+    console.log(`Quantum Server Active on port ${port} 🚀`);
 });
