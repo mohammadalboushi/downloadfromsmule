@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="neon">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quantum Engine v8.0 | AI Extractor</title>
+    <link rel="icon" href="favicon.png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        'brand-primary': 'var(--primary)',
+                        'brand-secondary': 'var(--secondary)',
+                        'brand-bg': 'var(--bg)',
+                        'brand-card': 'var(--card-bg)',
+                    },
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                        tech: ['Space Grotesk', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        :root[data-theme="neon"] {
+            --primary: #00F5FF;
+            --secondary: #6C5CFF;
+            --bg: #0A0F1F;
+            --card-bg: rgba(18, 26, 47, 0.6);
+        }
+        :root[data-theme="classic"] {
+            --primary: #00FF99;
+            --secondary: #008855;
+            --bg: #050505;
+            --card-bg: rgba(10, 255, 100, 0.03);
+        }
+
+        body {
+            background-color: var(--bg);
+            color: #e2e8f0;
+            overflow-x: hidden;
+            transition: background-color 0.5s ease;
+        }
+
+        #splash {
+            position: fixed; inset: 0; z-index: 9999;
+            background: var(--bg);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: opacity 0.8s ease, visibility 0.8s;
+        }
+
+        .glass-panel {
+            background: var(--card-bg);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            position: relative; z-index: 10;
+        }
+        
+        .glass-panel::before {
+            content: ""; position: absolute; inset: -1px; border-radius: inherit; padding: 1px;
+            background: linear-gradient(45deg, transparent, var(--primary), transparent, var(--secondary));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor; mask-composite: exclude;
+            animation: borderGlow 4s linear infinite; opacity: 0.5;
+        }
+
+        @keyframes borderGlow {
+            0% { background-position: 0% 50%; }
+            100% { background-position: 200% 50%; }
+        }
+
+        .btn-premium { position: relative; overflow: hidden; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .btn-premium:hover { transform: translateY(-3px) scale(1.02); box-shadow: 0 10px 20px -10px var(--primary); }
+        
+        .toast { position: fixed; bottom: -100px; right: 20px; transition: all 0.4s; z-index: 50; }
+        .toast.show { bottom: 20px; }
+
+        .drag-active { border-color: var(--primary) !important; background-color: rgba(0, 245, 255, 0.1) !important; }
+        
+        #mainCard { transition: transform 0.1s ease-out; transform-style: preserve-3d; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center relative p-4 selection:bg-brand-primary selection:text-black">
+
+    <div id="splash">
+        <i class="fa-solid fa-microchip text-4xl text-brand-primary animate-pulse mb-4"></i>
+        <div class="font-tech text-brand-primary text-sm mb-2" data-i18n="splashInit">جاري تهيئة محرك الكم...</div>
+        <div class="w-48 h-1 bg-slate-800 rounded overflow-hidden">
+            <div class="h-full bg-brand-primary animate-[scan_2s_ease-in-out_infinite]"></div>
+        </div>
+    </div>
+
+    <video autoplay loop muted playsinline class="fixed inset-0 w-full h-full object-cover opacity-10 pointer-events-none z-[-1]">
+        <source src="https://assets.codepen.io/3364143/7btrrd.mp4" type="video/mp4">
+    </video>
+
+    <div class="fixed top-0 left-0 w-full glass-panel border-b-0 rounded-none px-4 py-2 flex flex-wrap justify-between items-center text-[10px] sm:text-xs font-tech tracking-wider z-40 gap-2">
+        <div class="flex gap-4 sm:gap-6">
+            <span class="flex items-center gap-2"><div class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div> <span data-i18n="aiStatus">متصل بالذكاء الاصطناعي</span></span>
+            <span id="latencyDisplay" class="flex items-center gap-2 text-brand-primary"><i class="fa-solid fa-wifi"></i> Latency 24 ms</span>
+        </div>
+        <div class="flex gap-4 items-center">
+            <span class="text-slate-400 hidden sm:inline-block"><i class="fa-solid fa-database"></i> <span data-i18n="processed">تمت معالجتها اليوم:</span> <span id="processedCount">1287</span></span>
+            <button onclick="toggleTheme()" class="hover:text-brand-primary transition-colors"><i class="fa-solid fa-palette"></i></button>
+            <button id="langBtn" onclick="toggleLanguage()" class="hover:text-brand-primary transition-colors font-bold">EN / ع</button>
+        </div>
+    </div>
+
+    <main class="w-full max-w-2xl mt-12">
+        
+        <div class="text-center mb-8 relative">
+            <h1 class="text-3xl md:text-5xl font-extrabold mb-3 text-transparent bg-clip-text bg-gradient-to-r from-brand-primary via-white to-brand-secondary drop-shadow-[0_0_15px_rgba(0,245,255,0.3)]">
+                AI Media Engine
+            </h1>
+            <div class="inline-block glass-panel px-4 py-1 rounded-full border border-brand-primary/30 text-brand-primary font-tech text-sm shadow-[0_0_10px_rgba(0,245,255,0.2)]">
+                Quantum Deep Scanner v8.0
+            </div>
+        </div>
+
+        <div id="mainCard" class="glass-panel rounded-3xl p-6 md:p-8 relative transition-all duration-500 hover:shadow-[0_0_40px_rgba(108,92,255,0.15)]">
+            
+            <div id="inputSection" class="space-y-6 relative z-10 border-2 border-transparent rounded-2xl transition-all duration-300">
+                <div class="relative group">
+                    <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none text-slate-400 group-focus-within:text-brand-primary transition-colors">
+                        <i class="fa-solid fa-link"></i>
+                    </div>
+                    <input type="url" id="smuleUrl" dir="ltr" 
+                        placeholder="الصق أو اسحب رابط Smule هنا..." 
+                        class="w-full bg-slate-900/50 border border-slate-700/50 rounded-2xl py-4 pr-12 pl-4 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-brand-primary font-tech transition-all duration-300">
+                </div>
+
+                <button onclick="startExtraction()" class="btn-premium w-full bg-gradient-to-r from-brand-primary to-brand-secondary text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-3">
+                    <i class="fa-solid fa-microchip"></i>
+                    <span data-i18n="btnExtract">بدء الفحص العميق</span>
+                </button>
+            </div>
+
+            <div id="loadingSection" class="hidden space-y-4 font-tech text-sm relative z-10 py-4">
+                <div class="flex justify-between text-brand-primary mb-2">
+                    <span id="scanStatusText">جاري الاتصال...</span>
+                    <span id="scanPercentage">0%</span>
+                </div>
+                <div class="w-full bg-slate-900/50 rounded-full h-2 mb-4 overflow-hidden border border-slate-700">
+                    <div id="scanProgressBar" class="bg-gradient-to-r from-brand-primary to-brand-secondary h-2 rounded-full w-0 transition-all duration-300"></div>
+                </div>
+                <div id="scanSteps" class="text-slate-400 space-y-2 h-20 overflow-hidden text-xs"></div>
+            </div>
+
+            <div id="resultSection" class="hidden relative z-10 mt-2"></div>
+        </div>
+    </main>
+
+    <div id="toast" class="toast glass-panel px-6 py-4 rounded-2xl flex items-center gap-3 border-green-500/30">
+        <i class="fa-solid fa-check-circle text-green-500 text-xl"></i>
+        <span id="toastMsg" class="font-bold text-sm text-white font-tech"></span>
+    </div>
+
+    <script>
+        let audioCtx;
+        function initAudio() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        function playSfx(type) {
+            initAudio();
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            
+            if (type === 'click') {
+                osc.type = 'sine'; osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+            } else if (type === 'success') {
+                osc.type = 'triangle'; osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.4);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.4);
+            } else if (type === 'error') {
+                osc.type = 'sawtooth'; osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.4);
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
+                osc.start(); osc.stop(audioCtx.currentTime + 0.4);
+            }
+        }
+
+        document.addEventListener('click', (e) => {
+            if(e.target.closest('button') || e.target.closest('a')) playSfx('click');
+        });
+
+        window.onload = () => {
+            setTimeout(() => {
+                document.getElementById('splash').style.opacity = '0';
+                setTimeout(() => document.getElementById('splash').style.visibility = 'hidden', 800);
+            }, 1500);
+            
+            let count = localStorage.getItem('aiOpsCount') || 1287;
+            document.getElementById('processedCount').innerText = count;
+
+            setInterval(() => {
+                const ping = navigator.connection ? navigator.connection.rtt : Math.floor(Math.random() * 20 + 20);
+                document.getElementById('latencyDisplay').innerHTML = `<i class="fa-solid fa-wifi"></i> Latency ${ping || 24} ms`;
+            }, 5000);
+        };
+
+        const card = document.getElementById('mainCard');
+        card.addEventListener('mousemove', (e) => {
+            if (window.innerWidth < 768) return;
+            const rect = card.getBoundingClientRect();
+            const x = e.clientX - rect.left; const y = e.clientY - rect.top;
+            const rotateX = ((y - (rect.height / 2)) / (rect.height / 2)) * -4;
+            const rotateY = ((x - (rect.width / 2)) / (rect.width / 2)) * 4;
+            card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+        });
+        card.addEventListener('mouseleave', () => card.style.transform = `perspective(1000px) rotateX(0deg) rotateY(0deg)`);
+
+        const inputSec = document.getElementById('inputSection');
+        const urlInput = document.getElementById('smuleUrl');
+        inputSec.addEventListener('dragover', (e) => { e.preventDefault(); inputSec.classList.add('drag-active'); });
+        inputSec.addEventListener('dragleave', () => inputSec.classList.remove('drag-active'));
+        inputSec.addEventListener('drop', (e) => {
+            e.preventDefault(); inputSec.classList.remove('drag-active');
+            const text = e.dataTransfer.getData('text');
+            if (text) urlInput.value = text;
+        });
+
+        function showToast(msg, type = 'success') {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMsg').innerText = msg;
+            toast.className = `toast glass-panel px-6 py-4 rounded-2xl flex items-center gap-3 show ${type==='success' ? 'border-green-500/30' : 'border-rose-500/30'}`;
+            toast.querySelector('i').className = `fa-solid ${type==='success' ? 'fa-check-circle text-green-500' : 'fa-skull-crossbones text-rose-500'} text-xl`;
+            setTimeout(() => toast.classList.remove('show'), 4000);
+        }
+
+        function toggleTheme() {
+            const html = document.documentElement;
+            html.setAttribute('data-theme', html.getAttribute('data-theme') === 'neon' ? 'classic' : 'neon');
+        }
+
+        let isArabic = true;
+        const dict = {
+            en: { splashInit: 'Quantum Engine Initializing...', aiStatus: 'AI ONLINE', processed: 'Processed Today:', btnExtract: 'Initialize Deep Scan' },
+            ar: { splashInit: 'جاري تهيئة محرك الكم...', aiStatus: 'متصل بالذكاء الاصطناعي', processed: 'تمت معالجتها اليوم:', btnExtract: 'بدء الفحص العميق' }
+        };
+        function toggleLanguage() {
+            isArabic = !isArabic;
+            document.documentElement.dir = isArabic ? 'rtl' : 'ltr';
+            document.documentElement.lang = isArabic ? 'ar' : 'en';
+            
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                el.innerText = dict[isArabic ? 'ar' : 'en'][el.getAttribute('data-i18n')];
+            });
+            
+            const urlInput = document.getElementById('smuleUrl');
+            if (urlInput) {
+                urlInput.placeholder = isArabic ? 'الصق أو اسحب رابط Smule هنا...' : 'Paste or Drop Smule URL here...';
+            }
+            
+            const langBtn = document.getElementById('langBtn');
+            if (langBtn) {
+                langBtn.innerText = isArabic ? 'EN / ع' : 'ع / EN';
+            }
+        }
+
+        function updateProgress(data) {
+            document.getElementById('scanProgressBar').style.width = data.progress + '%';
+            document.getElementById('scanPercentage').innerText = data.progress + '%';
+            document.getElementById('scanStatusText').innerText = data.step;
+            
+            const stepEl = document.createElement('div');
+            stepEl.className = 'text-brand-primary';
+            stepEl.innerText = `> ${data.step}`;
+            document.getElementById('scanSteps').prepend(stepEl);
+        }
+
+        async function startExtraction() {
+            const url = urlInput.value.trim();
+            if (!url.includes('smule.com')) return showToast(isArabic ? 'رابط غير صالح' : 'Invalid Target URL', 'error');
+
+            document.getElementById('inputSection').classList.add('hidden');
+            document.getElementById('loadingSection').classList.remove('hidden');
+            document.getElementById('resultSection').classList.add('hidden');
+            document.getElementById('scanSteps').innerHTML = '';
+            document.title = '⏳ Scanning...';
+
+            let fakeProgress = 10;
+            updateProgress({ step: isArabic ? 'جاري الاتصال بالمحرك...' : 'Connecting to engine...', progress: fakeProgress });
+            const progressInterval = setInterval(() => {
+                if (fakeProgress < 85) {
+                    fakeProgress += 15;
+                    updateProgress({ step: isArabic ? 'جاري فك التشفير وسحب البيانات...' : 'Decrypting and fetching...', progress: fakeProgress });
+                }
+            }, 600);
+            
+            try {
+                // تعديل الرابط ليكون نسبياً ويتجنب حظر الـ CORS أو أخطاء localhost
+                const response = await fetch('/api/extract', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url })
+                });
+
+                clearInterval(progressInterval);
+                const data = await response.json();
+
+                if (data.type === 'success') {
+                    updateProgress({ step: isArabic ? 'تم بنجاح!' : 'Complete!', progress: 100 });
+                    setTimeout(() => handleSuccess(data.data), 400);
+                } else {
+                    handleError(data.error || 'Unknown error');
+                }
+            } catch (err) {
+                clearInterval(progressInterval);
+                handleError('Connection failed or server offline.');
+            }
+        }
+
+        function handleSuccess(data) {
+            playSfx('success');
+            document.title = '✅ Extraction Complete';
+            document.getElementById('loadingSection').classList.add('hidden');
+            const resSec = document.getElementById('resultSection');
+            resSec.classList.remove('hidden');
+            
+            let count = parseInt(localStorage.getItem('aiOpsCount') || 1287) + 1;
+            localStorage.setItem('aiOpsCount', count);
+            document.getElementById('processedCount').innerText = count;
+
+            resSec.innerHTML = `
+                <div class="flex flex-col sm:flex-row gap-6 items-center sm:items-start bg-slate-900/40 p-5 rounded-2xl border border-brand-primary/20">
+                    <img src="${data.cover || 'https://via.placeholder.com/150/0A0F1F/00F5FF?text=No+Cover'}" class="w-24 h-24 shrink-0 rounded-xl object-cover shadow-[0_0_20px_var(--primary)] border border-brand-primary/30">
+                    <div class="flex-1 w-full space-y-2">
+                        <div class="flex justify-between items-start">
+                            <h3 class="font-bold text-lg text-white truncate max-w-[200px]" title="${data.title}">${data.title}</h3>
+                            <span class="text-[10px] font-tech text-brand-primary bg-brand-primary/10 px-2 py-1 rounded border border-brand-primary/20">DECRYPTED</span>
+                        </div>
+                        <div class="text-xs font-tech text-slate-400 mb-2"><i class="fa-solid fa-microphone"></i> ${data.artist}</div>
+                        <audio controls class="w-full mt-2 h-8" src="${data.url}"></audio>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-6">
+                    <a href="${data.url}" target="_blank" download class="btn-premium bg-brand-primary/10 border border-brand-primary text-brand-primary font-tech py-3 rounded-xl flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-download"></i> ${isArabic ? 'تحميل مباشر' : 'Download Media'}
+                    </a>
+                    <button onclick="copyURL('${data.url}')" class="btn-premium bg-slate-800/50 border border-slate-700 text-slate-300 font-tech py-3 rounded-xl flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-copy"></i> ${isArabic ? 'نسخ الرابط' : 'Copy Direct URL'}
+                    </button>
+                    <button onclick="resetApp()" class="sm:col-span-2 btn-premium text-slate-500 font-tech py-3 rounded-xl flex items-center justify-center gap-2 text-sm">
+                        <i class="fa-solid fa-rotate-left"></i> ${isArabic ? 'عملية جديدة' : 'Extract Another Target'}
+                    </button>
+                </div>
+            `;
+            setTimeout(() => document.title = 'Quantum Engine v8.0 | AI Extractor', 3000);
+        }
+
+        function handleError(msg) {
+            playSfx('error');
+            document.title = '❌ Error';
+            document.getElementById('loadingSection').classList.add('hidden');
+            const resSec = document.getElementById('resultSection');
+            resSec.classList.remove('hidden');
+            resSec.innerHTML = `
+                <div class="p-6 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-center gap-4">
+                    <i class="fa-solid fa-skull-crossbones text-rose-500 text-3xl mb-3 shadow-[0_0_20px_rgba(244,63,94,0.3)]"></i>
+                    <h3 class="text-rose-500 font-bold mb-1">SYSTEM OVERRIDE FAILED</h3>
+                    <p class="text-sm text-slate-400 font-tech">${msg}</p>
+                    <button onclick="resetApp()" class="mt-4 px-6 py-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-sm hover:bg-slate-700">Retry Sequence</button>
+                </div>
+            `;
+            setTimeout(() => document.title = 'Quantum Engine v8.0 | AI Extractor', 3000);
+        }
+
+        function copyURL(url) {
+            navigator.clipboard.writeText(url).then(() => showToast(isArabic ? 'تم النسخ!' : 'Copied!'));
+        }
+
+        function resetApp() {
+            document.getElementById('inputSection').classList.remove('hidden');
+            document.getElementById('resultSection').classList.add('hidden');
+            urlInput.value = '';
+        }
+
+        // دالة اللصق التلقائي
+        async function autoPasteURL() {
+            try {
+                const text = await navigator.clipboard.readText();
+                const urlInput = document.getElementById('smuleUrl');
+                
+                // إذا الحافظة فيها نص، والنص بيحتوي على رابط Smule، والمربع فاضي
+                if (text && text.includes('smule.com') && urlInput.value === '') {
+                    urlInput.value = text;
+                    showToast(isArabic ? 'تم لصق الرابط تلقائياً!' : 'URL Auto-pasted!');
+                }
+            } catch (err) {
+                console.log('تحتاج إلى التفاعل مع الصفحة أو إعطاء صلاحية لصق الحافظة');
+            }
+        }
+
+        // تشغيل الدالة أول ما تفتح الصفحة أو لما ترجع تفتح المتصفح من الخلفية
+        window.addEventListener('load', autoPasteURL);
+        window.addEventListener('focus', autoPasteURL);
+        // ربطها كمان بلمسة الشاشة عشان نتجاوز حماية المتصفح
+        document.addEventListener('click', autoPasteURL, { once: true });
+    </script>
+</body>
+</html>
