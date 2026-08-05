@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
-const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-core');
+const chromium = require('@sparticuz/chromium');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
 
@@ -33,14 +34,19 @@ app.post('/api/extract', async (req, res) => {
 
     let browser;
     try {
-        // إعدادات التشغيل
+        // إعدادات التشغيل الجديدة
         let launchOptions = {
-            headless: "new",
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'] 
+            args: chromium.args,
+            defaultViewport: chromium.defaultViewport,
+            headless: chromium.headless,
         };
 
-        // إذا ما كنا على سيرفرات Render، بنستخدم مسار تيرمكس (عشان يضل شغال عندك محلياً)
-        if (!process.env.RENDER) {
+        // فحص بيئة التشغيل
+        if (process.env.RENDER) {
+            // إذا كنا على سيرفر Render
+            launchOptions.executablePath = await chromium.executablePath();
+        } else {
+            // إذا ما كنا على Render، بنستخدم مسار تيرمكس المحلي
             launchOptions.executablePath = '/data/data/com.termux/files/usr/bin/chromium-browser';
         }
 
