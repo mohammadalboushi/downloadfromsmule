@@ -3,7 +3,6 @@ const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
 
-// إضافات التخفي عشان نتجاوز حماية Smule
 const puppeteerCore = require('puppeteer-core');
 const { addExtra } = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
@@ -51,10 +50,8 @@ app.post('/api/extract', async (req, res) => {
         }
 
         browser = await puppeteer.launch(launchOptions);
-        
         const page = await browser.newPage();
         
-        // تحديث الـ User-Agent لنسخة أحدث للتمويه
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36');
         
         await page.goto(url, { waitUntil: 'networkidle0', timeout: 90000 });
@@ -78,12 +75,19 @@ app.post('/api/extract', async (req, res) => {
                 }
             }
 
+            // التعديل هون: إذا ما لقى الأغنية، رح يجيب لنا شو شايف السيرفر
+            if (!mediaUrl) {
+                return { 
+                    debugMode: true, 
+                    pageTitle: document.title, 
+                    pageContent: document.body ? document.body.innerText.substring(0, 150).replace(/\n/g, ' ') : 'No Body'
+                };
+            }
+
             let ogTitle = document.querySelector('meta[property="og:title"]');
             let rawTitle = ogTitle ? ogTitle.content : 'Unknown Audio';
-            
             let ogImage = document.querySelector('meta[property="og:image"]');
             let cover = ogImage ? ogImage.content : '';
-
             let parts = rawTitle.split(' - ');
             let title = parts[0] ? parts[0].trim() : 'Unknown';
             let artist = parts[1] ? parts[1].trim() : 'Smule Artist';
@@ -96,14 +100,22 @@ app.post('/api/extract', async (req, res) => {
             };
         });
 
+        // تشخيص الخطأ وإرساله للواجهة
+        if (mediaData.debugMode) {
+            return res.json({ 
+                type: 'error', 
+                error: `السيرفر شاف هالشي: [${mediaData.pageTitle}] - ${mediaData.pageContent}` 
+            });
+        }
+
         if (mediaData.url) {
             return res.json({ type: 'success', data: mediaData });
         } else {
-            return res.json({ type: 'error', error: 'لم يتم العثور على الميديا، قد يكون الرابط خاص أو الحماية غيرت النمط.' });
+            return res.json({ type: 'error', error: 'خطأ غير معروف.' });
         }
     } catch (error) {
         console.error('Server Error Detail:', error);
-        return res.status(500).json({ type: 'error', error: error.message || 'حدث خطأ غير متوقع في متصفح السيرفر.' });
+        return res.status(500).json({ type: 'error', error: error.message || 'حدث خطأ في متصفح السيرفر.' });
     } finally {
         if (browser) await browser.close();
     }
