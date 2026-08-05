@@ -1,18 +1,22 @@
 const express = require('express');
 const cors = require('cors');
-const puppeteer = require('puppeteer-core');
-const chromium = require('@sparticuz/chromium');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
 
+// إضافات التخفي عشان نتجاوز حماية Smule
+const puppeteerCore = require('puppeteer-core');
+const { addExtra } = require('puppeteer-extra');
+const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+const chromium = require('@sparticuz/chromium');
+
+const puppeteer = addExtra(puppeteerCore);
+puppeteer.use(StealthPlugin());
+
 const app = express();
-// تحديد البورت ديناميكياً عشان يشتغل على Render أو محلياً
 const port = process.env.PORT || 3000; 
 
 app.use(cors({ origin: '*', methods: ['POST'] }));
 app.use(express.json());
-
-// تقديم ملفات الواجهة من مجلد public تلقائياً
 app.use(express.static(path.join(__dirname, 'public')));
 
 const limiter = rateLimit({
@@ -34,26 +38,24 @@ app.post('/api/extract', async (req, res) => {
 
     let browser;
     try {
-        // إعدادات التشغيل الجديدة
         let launchOptions = {
             args: chromium.args,
             defaultViewport: chromium.defaultViewport,
             headless: chromium.headless,
         };
 
-        // فحص بيئة التشغيل
         if (process.env.RENDER) {
-            // إذا كنا على سيرفر Render
             launchOptions.executablePath = await chromium.executablePath();
         } else {
-            // إذا ما كنا على Render، بنستخدم مسار تيرمكس المحلي
             launchOptions.executablePath = '/data/data/com.termux/files/usr/bin/chromium-browser';
         }
 
         browser = await puppeteer.launch(launchOptions);
         
         const page = await browser.newPage();
-        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36');
+        
+        // تحديث الـ User-Agent لنسخة أحدث للتمويه
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36');
         
         await page.goto(url, { waitUntil: 'networkidle0', timeout: 90000 });
 
